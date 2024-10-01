@@ -1,3 +1,4 @@
+from datetime import datetime
 class Guest:
 
     reward_rate = 100
@@ -76,20 +77,20 @@ class SupplementaryItem(Product):
     
 # Order class store guest's purchase    
 class Order:
-    def __init__(self,ID, name, product, price_per_unit, quantity):
+    def __init__(self,ID, product, unit_price, qty):
         self.ID = ID
-        self.name = name
         self.product = product
-        self.price_per_unit = price_per_unit
-        self.quantity = quantity
+        self.unit_price = unit_price
+        self.quantity = qty
         
     def compute_cost(self):
         # return the original total cost (cost before discount)
-        original_total_cost = self.price_per_unit * self.quantity
-        return original_total_cost
+        #original_total_cost = self.price_per_unit * self.quantity
+        #return original_total_cost
         # the disccount
         # the final total cost (the cost after the discount)
         # the reward
+        print()
 
 # the central data repository of program.
 class Records:
@@ -133,14 +134,14 @@ class Records:
         
     def find_guest(self, search_value):
         for i in range(len(self.guest_list)):
-            if search_value == self.guest_list[i].name or search_value == self.guest_list[i].ID:
+            if search_value == self.guest_list[i].name.strip() or search_value == self.guest_list[i].ID.strip():
                 return self.guest_list[i]
             if i == len(self.guest_list) - 1:
                 return None
-            
+
     def find_product(self, search_value):
         for i in range(len(self.product_list)):
-            if search_value == self.product_list[i].name or search_value == self.product_list[i].ID:
+            if search_value == self.product_list[i].name.strip() or search_value == self.product_list[i].ID.strip():
                 return self.product_list[i]
             if i == len(self.product_list) - 1:
                 return None
@@ -189,9 +190,190 @@ class Operations:
             print("Invalid menu, please try again.")
             self.display_menu()
     
-    def make_booking():
+    def make_booking(self):
+        try:
+            # self.guest_name = self.is_alpha() 
+            # self.number_guest = self.is_positive_guest() 
+            # self.apartment = self.check_apartmentID()
+            # self.apartment_id = self.apartment.ID
+            # self.apartment_rate = self.apartment.price
+            # print(f"[AUTO] The selected unit rate is ${self.apartment_rate:.2f}\n")
+            # self.checkin_date = self.get_checkin_date()
+            # self.checkout_date = self.get_checkout_date()
+            # self.lenght_stay = self.calculate_night_stay(self.checkin_date, self.checkout_date)
+            # self.booking_date = self.get_current_date()
+
+            self.add_supplementary()
+
+            #self.display_receipt()
+        except ValueError as e:
+            print("Error! make booking: {e}")
         
-        print()
+        
+#====================================== PART1 =================================
+    @staticmethod
+    def is_alpha():
+        while True:
+            str = input("Enter the name of the main guest (e.g. Alyssa):\n")
+            if str.isalpha(): #check input string only alphabet
+                return str
+            else:
+                print("names contain only alphabet characters")
+        # function check number of guest mus be positive integer.
+    @staticmethod    
+    def is_positive_guest():
+        while True:
+            try:
+                number = int(input("How many people will stay?:\n"))
+                if number > 0: # check number varieable must be greater than 0 to check the positive int.
+                    return number
+                else:
+                    print("Please enter a valid positive number.\n")
+            except:
+                print("Please enter a valid positive number.\n")
+
+    # function check apartment_id must be in list apartment_id
+    @staticmethod
+    def check_apartmentID():
+        while True:
+            apartment_id = input("Enter apartment unit ID to book:\n")
+            if records.find_product(apartment_id):
+                return records.find_product(apartment_id)
+            else:
+                print("This is not valid apartment ID. Please enter the valid ID.")
+    @staticmethod            
+    def get_checkin_date():
+        while True:
+            checkin_date = input("\nWhen will the guest is expected to check in (dd/mm/yyyy):\n")
+            if Operations.validate_date(checkin_date):
+                return checkin_date
+            else:
+                print("Input Date. Enter valid date.")
+    @staticmethod            
+    def get_checkout_date():
+        while True:
+            checkout_date = input("\nWhen will the guest is expected to check out (dd/mm/yyyy):\n")
+            if Operations.validate_date(checkout_date):
+                return checkout_date
+            else:
+                print("Invalid Date. Enter valid date.")
+
+    @staticmethod            
+    def validate_date(date):
+        try:
+            valid_date = datetime.strptime(date, "%d/%m/%Y")
+            return valid_date
+        except:
+            print("Invalid date format. Enter in format dd/mm/yyyy")
+
+    @staticmethod
+    def calculate_night_stay(check_in, check_out):
+        night = datetime.strptime(check_out, "%d/%m/%Y") - datetime.strptime(check_in, "%d/%m/%Y")
+        if night.days > 0:
+            return night.days
+        else:
+            print("Invalid input date> Check out date must be after Check in date!!!!!")
+
+    @staticmethod
+    def get_current_date():
+        current_date = datetime.now()
+        format_date = current_date.strftime("%d/%m/%Y %H:%M")
+        return format_date
+
+
+    @staticmethod            
+    def isNotNull(value):
+        if value is None:
+            return False
+        elif value.strip():
+            return False
+        elif len(value) == 0:
+            return False
+        else:
+            return True
+        
+    @staticmethod
+    def add_supplementary():
+        q1 = Operations.validate_asking_supplementary_1()
+        if q1:
+            while True:
+                si = Operations.get_supplementary()
+                if si:
+                    si_qty = Operations.get_quantity()
+                    if si_qty:
+                        confirm = Operations.confirm_order()
+                        if confirm:
+                            print("ADD to order class !!!!!!!")
+                            print("supplementary_id:", si.ID)
+                            print("supplementary_id_Name:", si.name)
+                            print("supplementary_id_qty:",si_qty)
+                            print("supplementary_id_Unit:", si.price)
+                        if not Operations.validate_asking_supplementary_2():
+                            break
+
+    @staticmethod
+    def validate_asking_supplementary_1():
+        while True:
+            answer = input("Do you want to order a supplementary item? (y/n)\n")
+            if answer.lower() in ['y', 'n']:
+                return answer.lower() == 'y'
+            print("Invalid answer. Please answer 'y' or 'n' only\n")
+    @staticmethod
+    def validate_asking_supplementary_2():
+        while True:
+            answer = input("Do you want to order another supplementary item? (y/n):\n")
+            if answer.lower() in ['y', 'n']:
+                return answer.lower() == 'y'
+            print("Invalid answer. Please answer 'y' or 'n' only\n")
+    @staticmethod
+    def get_supplementary():
+        while True:
+            supplementary_id = input(
+                "Enter the supplementary item ID (e.g., car_park, breakfast, toothpaste, extra_bed):\n"
+            )
+            si = records.find_product(supplementary_id)
+            if si != None:
+                return si
+            print("Invalid answer. There are non this supplementary_id\n")
+    @staticmethod
+    def get_quantity():
+        while True:
+            try:
+                quantity = int(input("Enter the desired quantity: "))
+                if quantity > 0:
+                    return quantity
+                print("Quantity must be an integer greater than 0.")
+            except ValueError:
+                print("Invalid input. Quantity must be an integer greater than 0.")
+    @staticmethod
+    def confirm_order():
+        while True:
+            confirm = input("Confirm the order: (y/n)\n")
+            if confirm.lower() in ['y', 'n']:
+                    return confirm.lower() == 'y'
+            print("Invalid answer. Please answer 'y' or 'n' only\n")
+
+
+
+    # disply total receipt after making a book apartment from menu 1
+    def display_receipt(self):
+        print("="*70)
+        print(f"{'Pythonia Service Apartment - Booking Receipt':^70}")
+        print("="*70)
+        print(f"{'Guest name:':<20} {self.guest_name}")
+        print(f"{'Number of guests:':<20} {self.number_guest}")
+        print(f"{'Apartment name:':<20} {self.apartment.name}(auto-complete based on id)")
+        print(f"{'Apartment_rate:$':<20} {self.apartment_rate:.2f}(AUD) (auto-complete based on id)")
+        print(f"{'Check-in date:':<20} {self.checkin_date}")
+        print(f"{'Check-out date:':<20} {self.checkout_date}")
+        print(f"{'Length of stay:':<20} {self.lenght_stay}(night)")
+        print(f"{'Booking date:':<20} {self.booking_date}")
+        # print("---------------------------------------------------------------- ")
+        # print(f"Total cost: ${receipt['cost']:.2f}  (AUD)")
+        # print(f"Earned rewards: {receipt['point']} (points)\n")
+        # print("Thank you for your booking! We hope you will have an enjoyable stay.")
+        # print("====================================================================== ")
+#====================================== [END] PART1 =================================
     def display_guests(self):
         return self.records.list_guest()
 
