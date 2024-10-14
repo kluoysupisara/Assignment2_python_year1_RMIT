@@ -1,0 +1,8 @@
+--- Top 3 Most Valuable Guests ---
+Guest: Luigi, Total Order Amount: $585.60
+Guest: Alyssa, Total Order Amount: $551.20
+
+--- Top 3 Most Popular Products ---
+Product: SI2, Quantity Sold: 6
+Product: U12swan, Quantity Sold: 2
+Product: U22goose, Quantity Sold: 2
