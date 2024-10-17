@@ -1,4 +1,6 @@
 from datetime import datetime
+import sys
+import os
 class Guest:
 
     reward_rate = 100
@@ -28,8 +30,6 @@ class Guest:
         print(f"{self.ID:<10} {self.name:<20} {self.reward_rate:>10.2f} {self.reward:>10.2f} {self.redeem_rate:>15.2f}")
     @staticmethod
     def set_reward_rate(new_value):
-
-
         Guest.reward_rate = new_value
         print(f"Successfully set the new reward rate for all guests to {Guest.reward_rate:.2f}%.\n")
     @staticmethod
@@ -126,49 +126,32 @@ class Order:
         products_str = ', '.join([f"{item['quantity']} x {item['product_id']}" for item in self.products])
         print(f"Order{index:<10} {products_str:<50} {self.total_cost:<15.2f} {self.earn_reward:<15}")
 
-
-    
-    # =============== Backup Orderclass before HD Level=================
-    # def __init__(self,guest, product=[], qty=[]):
-    #     self.guest = guest
-    #     self.product = product
-    #     self.quantity = qty
-    #     self.cost_dict = {}
+    # Method to compute original cost, discount, final total cost, and reward
+    def compute_cost(self, claim_discount, records):
+        #initial data
+        original_total_cost = self.total_cost
+        discount = 0
+        guest = records.find_guest(self.guest_name)
+        redeem_point = 0
         
-    # def compute_cost(self, ans):
+        if claim_discount:
+            redeem_point = (guest.reward//100) * 100
+            discount = redeem_point * (self.guest.redeem_rate/100)
 
-    #     # cost before the discount
-    #     original_total_cost = sum(product.price * qty for product, qty in zip(self.product, self.quantity))
-    #     discount = 0
-    #     redeem_point = 0
-    #     print("original_total_cost:", original_total_cost)
-    #     if ans:
-    #         discount = self.guest.reward * (self.guest.redeem_rate/100)
-    #         # point is used to reedeem
-    #         redeem_point = self.guest.reward
-            
-    #     # the final_total_cost:
-    #     final_total_cost = original_total_cost - discount
-    #     # earn_reward
-    #     earn_reward = self.guest.get_reward(final_total_cost)
+        # the final_total_cost:
+        final_total_cost = original_total_cost - discount
+        # earn_reward
+        earn_reward = guest.get_reward(final_total_cost)
+        
 
-    #     self.cost_dict['original_total_cost'] = original_total_cost
-    #     self.cost_dict['redeem_point'] = redeem_point
-    #     self.cost_dict['discount'] = discount
-    #     self.cost_dict['final_total_cost'] = final_total_cost
-    #     self.cost_dict['reward'] = earn_reward
-
-    #     #get_reward
-    #     new_reward = self.guest.get_reward(final_total_cost)
-    #     #update reward
-    #     if discount > 0:
-    #         self.guest.update_reward(redeem_point*-1)
-    #         self.guest.update_reward(new_reward)
-    #     else:
-    #         self.guest.update_reward(new_reward)
-
-    #     return self.cost_dict
-    # =============== Backup Orderclass before HD Level=================
+        # Return a dictionary with all the computed values
+        return {
+            'original_total_cost': original_total_cost,
+            'redeem_point': redeem_point,
+            'discount': discount,
+            'final_total_cost': final_total_cost,
+            'reward': earn_reward
+        }
 
 
 # the central data repository of program.
@@ -211,7 +194,7 @@ class Records:
                         bundle_id = line_field[0].strip()
                         bundle_name = line_field[1].strip()
                         bundle_price = float(line_field[-1])
-                        bundle_components = line_field[2:-1]
+                        bundle_components = [component.strip() for component in line_field[2:-1]]
                         new_product = Bundle(bundle_id, bundle_name, bundle_price, bundle_components)
                         self.product_list.append(new_product)
                 line = file.readline()
@@ -309,7 +292,6 @@ class Records:
         print(f"{'ID':<10} {'Name':<20} {'Reward_rate':>10} {'Reward':>10} {'Redeem_rate':>15}")
         for guest in self.guest_list:
             guest.display_info()
-
     def list_product(self, product_type):
         if product_type.lower() == "apartment":
             text = " Display existing apartment units "
@@ -575,13 +557,56 @@ class Records:
         print("\nUpdated List of Bundles:")
         self.list_product("bundle")
 
+    # Method to save guest data back to the file
+    def save_guests(self, filename):
+        try:
+            with open(filename, "w") as file:
+                for guest in self.guest_list:
+                    line = f"{guest.guest_id},{guest.name},{guest.reward_rate},{guest.reward},{guest.redeem_rate}\n"
+                    file.write(line)
+            print(f"Guest data saved to {filename}.")
+        except Exception as e:
+            print(f"Error saving guest data: {e}")
+
+    # Method to save product data back to the file
+    def save_product(self, filename):
+        try:
+            with open(filename, "w") as file:
+                for product in self.product_list:
+                    if isinstance(product, ApartmentUnit):
+                        line = f"{product.ID}, {product.name}, {product.price}, {product.capacity}\n"
+                    elif isinstance(product, SupplementaryItem):
+                        line = f"{product.ID}, {product.name}, {product.price}\n"
+                    elif isinstance(product, Bundle):
+                        components = ",".join(product.component)
+                        line = f"{product.ID}, {product.name}, {components}, {product.price}\n"
+                    file.write(line)
+            print(f"Product data saved to {filename}.")
+        except Exception as e:
+            print(f"Error saving product data: {e}")
+
+    # Method to save order data back to the file
+    def save_orders(self, filename):
+        try:
+            with open(filename, "w") as file:
+                for order in self.order_list:
+                    product_details = ", ".join([f"{item['quantity']} x {item['product_id']}" for item in order.products])
+                    line = f"{order.guest_name}, {product_details}, {order.total_cost}, {order.earn_reward}, {order.order_date}\n"
+                    file.write(line)
+            print(f"Order data saved to {filename}.")
+        except Exception as e:
+            print(f"Error saving order data: {e}")
 
 
-# the main class of program
-class Operations:
 
-    def __init__(self, records):
+# the main class of programformatted_productsclass Operations:
+class Operations:  
+    def __init__(self, records, guest_file, product_file, order_file):
         self.records = records
+        self.guest_file = guest_file
+        self.product_file = product_file
+        self.order_file = order_file    
+        
 
     def display_menu(self):
         print("")
@@ -642,26 +667,38 @@ class Operations:
             print(f"\n{padding}{text}{padding}\n")
             self.display_order_history()
         elif menu == '0':
-            exit()
+            self.save_and_exit()
         else:
             print("Invalid menu, please try again.")
             self.display_menu()
     
     def make_booking(self):
+
         try:
             self.guest_name = self.is_alpha() 
-            self.number_guest = self.is_positive_guest() 
-            self.apartment = self.check_apartmentID()
-            self.apartment_id = self.apartment.ID
-            self.apartment_name = self.apartment.name.strip()
-            self.apartment_rate = self.apartment.price
-            print(f"[AUTO] The selected unit rate is ${self.apartment_rate:.2f}")
-            self.booking_date = self.get_current_date()
+            self.number_guest = self.is_positive_guest()
+
+            #check if guest wants to book a bundle
+            self.answer_bundle = self.ask_bundle()
+            if self.answer_bundle:
+                self.selected_bundle = self.select_bundle()
+                self.selected_bundle_id = self.selected_bundle.ID
+                self.selected_bundle_name = self.selected_bundle.name.strip()
+                self.selected_bundle_price = self.selected_bundle.price
+                self.bundle_list = self.bundle_supplementary_list(self.selected_bundle)
+            else:
+                self.apartment = self.check_apartmentID()
+                self.apartment_id = self.apartment.ID
+                self.apartment_name = self.apartment.name.strip()
+                self.apartment_rate = self.apartment.price
+                print(f"[AUTO] The selected unit rate is ${self.apartment_rate:.2f}")
+            self.booking_date = datetime.now()
             self.checkin_date = self.get_checkin_date()
             self.checkout_date = self.get_checkout_date()
             
             # Pass validate_date
-            self.length_stay = self.calculate_night_stay(self.checkin_date, self.checkout_date)
+            self.length_stay = (self.checkout_date - self.checkin_date).days
+            print("Length of stay: ", self.length_stay)
             #Calculate apartment_sub_total
             self.apartment_sub_total = self.apartment_rate * self.length_stay
 
@@ -673,11 +710,8 @@ class Operations:
                 return
             
             # add supplementary
-            self.supplementary_list = self.add_supplementary(extra_beds_needed, self.length_stay)
-            
-
+            self.supplementary_list = Operations.add_supplementary(extra_beds_needed, self.length_stay)
             # a guest finishes making an order
-
             #check exist guest
             if not self.check_exist_guest():
                 number_guest = len(self.records.guest_list)
@@ -685,31 +719,11 @@ class Operations:
                 guest = Guest(new_id, self.guest_name)
                 #add new_guest to guest_list
                 self.records.guest_list.append(guest)
-
             # Existing guest    
             else:
                 #print message showing reward point poceed the purchese
                 guest = self.records.find_guest(self.guest_name)
                 print(f"{'You have rewards point':<30} {guest.reward}")
-            
-            # making order part
-            list_product_order = []
-            list_qty_order = []
-            # order for apartment_unit
-            list_product_order.append(self.apartment)
-            list_qty_order.append(self.length_stay)
-
-            # order supplementary_items
-            if self.supplementary_list:
-                self.supplementary_item_sub_total = self.get_si_sub_total()
-                for si, qty in self.supplementary_list:
-                    list_product_order.append(si)
-                    list_qty_order.append(qty)
-
-            # create order
-            self.order = Order(guest, list_product_order, list_qty_order)
-            # add to records
-            self.records.add_order(self.order)
 
             #=============== claim for discount================
             # case guest can claim reward
@@ -718,17 +732,56 @@ class Operations:
                 answer_claim_reward = Operations.confirm_claim_discount()
             else:
                 # cannot claim disount reward because donot have enough reward point.
-                answer_claim_reward = 'n'
-            
-            self.cost_result = self.order.compute_cost(answer_claim_reward)
-            print("cost_result_total:", self.cost_result)
+                answer_claim_reward = False
+            #===============Add data to Order Class================
+            # Making the order part
+            list_product_order = []
+            list_qty_order = []
 
+            # Order for apartment unit
+            if self.answer_bundle:
+                list_product_order.append(self.selected_bundle_id)
+                list_qty_order.append(self.length_stay)
+            else:
+                list_product_order.append(self.apartment_id)
+                list_qty_order.append(self.length_stay)
+            self.supplementary_item_sub_total = 0
 
+            # Order supplementary items
+            if self.supplementary_list is not None:
+                self.supplementary_item_sub_total = Operations.get_si_sub_total(self.supplementary_list)
+                for si, qty in self.supplementary_list:
+                    list_product_order.append(si.ID)
+                    list_qty_order.append(qty)
+            # Calculate total cost of the order
+            if self.answer_bundle:
+                total_cost =round((self.selected_bundle_price * self.length_stay) + self.supplementary_item_sub_total, 2)
+            else:
+                total_cost = round((self.apartment_rate * self.length_stay) + self.supplementary_item_sub_total, 2)
+
+            # Calculate rewards earned based on the total cost
+            earn_reward = total_cost * guest.reward_rate/100
+
+            # Get the current date and time for the order
+            order_date = self.get_current_formatdate()
+
+            # Format the products for the order creation
+            formatted_products = [{'product_id': prod, 'quantity': qty} for prod, qty in zip(list_product_order, list_qty_order)]
+
+            # Create the new order object
+            # Order(guest_name, product, total_cost, earn_reward, order_date)
+            new_order = Order(guest.name, formatted_products, total_cost, earn_reward, order_date)
+            guest.update_reward(earn_reward)
+
+            # Add the new order to the records
+            self.records.order_list.append(new_order)
+            self.cost_result = new_order.compute_cost(answer_claim_reward, self.records)
+
+            self.booking_date = self.get_current_formatdate()
             self.display_receipt()
         except ValueError as e:
             print("Error! make booking: {e}")
-        
-        
+                    
 #====================================== PART1 =================================
     @staticmethod
     def is_alpha():
@@ -815,12 +868,12 @@ class Operations:
             return night.days
         else:
             print("Invalid input date> Check out date must be after Check in date!!!!!")
-
+    
     @staticmethod
-    def get_current_date():
+    def get_current_formatdate():
         current_date = datetime.now()
-        #format_date = current_date.strftime("%d/%m/%Y %H:%M")
-        return current_date
+        format_date = current_date.strftime("%d/%m/%Y %H:%M")
+        return format_date
 
 
     @staticmethod            
@@ -833,13 +886,11 @@ class Operations:
             return False
         else:
             return True
-        
     @staticmethod
-    def add_supplementary(self, extra_beds_needed=0, length_stay=0):
+    def add_supplementary(extra_beds_needed, length_stay):
         supplementary_list = []
         #total_car_park = 0
         total_extra_beds = 0  # Track the total number of extra beds added
-        print("Length of stay:",length_stay)
         max_extra_beds = 2 * length_stay  # Maximum number of extra beds allowed per order
         #============ extra bed=================
         # Automatically add extra beds if needed
@@ -865,12 +916,12 @@ class Operations:
                         # Check if the item is a car park and validate its quantity
                         if si.ID == 'SI1':
                             if si_qty < length_stay:
-                                print(f"Error: The total car park quantity cannot be less than the number of nights ({self.length_stay}).")
+                                print(f"Error: The total car park quantity cannot be less than the number of nights ({length_stay}).")
                                 valid_input = False  # Invalid input, re-prompt for quantity
                         # check if item = extra_bed and validate its quantity but not exceed max_extra_bed
                         if si.ID == 'SI6':
                             if si_qty < length_stay: # validate at least minimum of stay nights
-                                print(f"Error: The total extra bed quantity cannot be less than the number of nights ({self.lenght_stay}).")
+                                print(f"Error: The total extra bed quantity cannot be less than the number of nights ({length_stay}).")
                                 valid_input = False  # Invalid input, re-prompt for quantity
                             if total_extra_beds + si_qty >  max_extra_beds:
                                 print(f"Error: number of extra bed added is {total_extra_beds + si_qty} The total extra bed quantity cannot exceed {max_extra_beds}.")
@@ -908,6 +959,7 @@ class Operations:
                         break
             # return the final list of (si, qty)
             return supplementary_list
+        return None
 
     @staticmethod
     def validate_asking_supplementary_1():
@@ -919,7 +971,7 @@ class Operations:
     @staticmethod
     def validate_asking_supplementary_2():
         while True:
-            answer = input("Do you want to order another supplementary item? (y/n):\n")
+            answer = input("Do you want to order another supplementary item? (y/n):\n").lower()
             if answer.lower() in ['y', 'n']:
                 return answer.lower() == 'y'
             print("Invalid answer. Please answer 'y' or 'n' only\n")
@@ -946,7 +998,7 @@ class Operations:
     @staticmethod
     def confirm_order():
         while True:
-            confirm = input("Confirm the order: (y/n)\n")
+            confirm = input("Confirm the order: (y/n)\n").lower()
             if confirm.lower() in ['y', 'n']:
                     return confirm.lower() == 'y'
             print("Invalid answer. Please answer 'y' or 'n' only\n")
@@ -956,30 +1008,72 @@ class Operations:
             return True
         else:
             return False
-        
-    def get_si_sub_total(self):
+    @staticmethod
+    def get_si_sub_total(supplementary_list):
         sub_total = 0
-        if self.supplementary_list:
-            for item, qty in self.supplementary_list:
+        if supplementary_list:
+            for item, qty in supplementary_list:
                 cost = item.price * qty
                 sub_total += cost
         return sub_total
     @staticmethod
     def confirm_claim_discount():
         while True:
-            confirm = input("Do you want to use point to claim for discount?: (y/n)\n")
+            confirm = input("Do you want to use point to claim for discount?: (y/n)\n").lower()
             if confirm.lower() in ['y', 'n']:
                     return confirm.lower() == 'y'
             print("Invalid answer. Please answer 'y' or 'n' only\n")
-    
-    
-    
-    
-    def calculate_extra_beds(self, number_guest):
-        # Calculate the number of extra beds required based on the number of guests.
-        if number_guest > 2:
-            return number_guest - 2  # Assuming 2 guests can fit without extra beds.
-        return 0
+    def ask_bundle(self):
+        while True:
+            confirm = input("Do you want to book a bundle?: (y/n)\n").lower()
+            if confirm.lower() in ['y', 'n']:
+                    return confirm.lower() == 'y'
+            print("Invalid answer. Please answer 'y' or 'n' only\n")
+
+    def select_bundle(self):
+        # Display available bundles
+        available_bundles = [bundle for bundle in self.records.product_list if isinstance(bundle, Bundle)]
+        print("Available bundles:")
+        print(f"{'ID':<5} {'Name':<45} {'Components':<60} {'Price':<10}")
+        for bundle in available_bundles:
+            bundle.display_info()    
+        # Let the user select a bundle
+        selected_bundle = self.get_bundle()
+        if selected_bundle:
+            print(f"You have selected the bundle: {selected_bundle.name}")      
+            return selected_bundle
+        else:
+            print("Invalid bundle selected.")
+
+    def bundle_supplementary_list(self, selected_bundle):
+        apartment_id = selected_bundle.component[0]  # First product in the bundle is the apartment
+        self.apartment = self.get_product(apartment_id)
+        self.apartment_name = self.apartment.name
+        self.apartment_rate = self.apartment.price
+        
+        # Prepare supplementary items from the bundle
+        bundle_supplementary_list = []
+        for component_id in selected_bundle.component[1:]:
+            product = self.get_product(component_id)
+            if product:
+                bundle_supplementary_list.append((product, 1))  # Assuming 1 quantity for each supplementary item
+        
+        return bundle_supplementary_list
+    def get_product(self, product):
+        product = self.records.find_product(product)
+        return product
+
+    def get_bundle(self):
+        while True:
+            bundle_id = input(
+                "Enter the Bundle ID/Name you want to select e.g., B1 , B2, Bed and breakfast for two):\n"
+            )
+            bundle = self.records.find_product(bundle_id)
+            if bundle != None:
+                return bundle
+            print("Invalid answer. There are non this supplementary_id\n")
+        
+
 
     def calculate_car_park(self, length_stay):
         # Calculate the number of car park spaces required based on the length of stay.
@@ -1007,11 +1101,6 @@ class Operations:
             print(f"Error: The number of extra beds needed exceeds the maximum of 2 beds. Booking cannot proceed.")
             return None  # Indicates booking cannot proceed
 
-        # Adjust extra beds needed to match or exceed the number of nights
-        #if extra_beds_needed < length_stay:
-        #print(f"Note: The number of extra beds must be at least {length_stay} to match the number of nights.")
-        #extra_beds_needed = length_stay * extra_beds_needed_per_day
-
         # Multiply the number of extra beds by the number of nights to reflect per-night pricing
         total_extra_beds = extra_beds_needed * length_stay
 
@@ -1037,6 +1126,9 @@ class Operations:
                     raise ValueError("Reward rate must be greater than 0.")
                 # Update the reward rate
                 Guest.set_reward_rate(new_reward_rate)
+                 # Update the reward rate for all guests in the records
+                for guest in self.records.guest_list:
+                    guest.reward_rate = new_reward_rate  # Update individual guest reward rate
                 break
             except ValueError as e:
                 # Handle invalid input and re-prompt the user
@@ -1050,10 +1142,14 @@ class Operations:
                     raise ValueError("Redeem rate must be greater than 0.")
                 # Update the redeem rate
                 Guest.set_redeem_rate(new_redeem_rate)
+                 # Update the reward rate for all guests in the records
+                for guest in self.records.guest_list:
+                    guest.redeem_rate = new_redeem_rate  # Update individual guest reward rate
                 break
             except ValueError as e:
                 # Handle invalid input and re-prompt the user
                 print(f"Invalid input: {e}. Please enter a valid positive number.")
+
 
 
 
@@ -1066,14 +1162,31 @@ class Operations:
         print("="*70)
         print(f"{'Guest name:':<20} {self.guest_name}")
         print(f"{'Number of guests:':<20} {self.number_guest}")
-        print(f"{'Apartment name:':<20} {self.apartment_name}(auto-complete based on id)")
-        print(f"{'Apartment_rate:$':<20} {self.apartment_rate:.2f}(AUD) (auto-complete based on id)")
+        if self.answer_bundle:
+            print(f"{'Bundle name:':<20} {self.selected_bundle_name}")
+            print(f"{'Apartment name:':<20} {self.apartment_name}(auto-complete based on id)")
+        else:
+            print(f"{'Apartment name:':<20} {self.apartment_name}(auto-complete based on id)")
+            print(f"{'Apartment_rate:$':<20} {self.apartment_rate:.2f}(AUD) (auto-complete based on id)")
         print(f"{'Check-in date:':<20} {self.checkin_date}")
         print(f"{'Check-out date:':<20} {self.checkout_date}")
         print(f"{'Length of stay:':<20} {self.length_stay}(night)")
-        print(f"{'Booking date:':<20} {self.booking_date}\n")
-        print(f"{'Sub-total:$':<20} {self.apartment_sub_total}(AUD)")
-        # print part supplemetary items
+        print(f"{'Booking date:':<20} {self.booking_date}")
+        if self.answer_bundle:
+            print(f"{'Special bundle price:$':<20} {self.selected_bundle_price * self.length_stay:.2f}(AUD) (for {self.length_stay} nights)")
+        else:
+            print(f"{'Sub-total:$':<20} {self.apartment_sub_total}(AUD)")
+        # Bundle supplementary items included in the price
+        if self.answer_bundle:
+            print("-"*70)
+            print(f"{'Included Supplementary items (in bundle price)':<20}")
+            print(f"{'ID':<10} {'Name':<20} {'Quantity':<10} {'Cost Included'}")
+            for si, qty in self.bundle_list:
+                id = si.ID
+                name = si.name
+                qty = qty * self.length_stay
+                print(f"{id:<10} {name:<20} {qty:<10} {'Included'}")
+            # print part supplemetary items
         if self.supplementary_list:
             print("-"*70)
             print(f"{'Supplementary items':<20}")
@@ -1089,7 +1202,7 @@ class Operations:
                 print(f"{id:<10} {name:<20} {qty:<10} {unit_price:<15.2f} {cost:<10.2f}")
 
             print(f"{'Sub-total:$':<20} {self.supplementary_item_sub_total}(AUD)")
-            print("-"*70)
+        print("-"*70)
         print(f"{'Total cost:$':<20} {self.cost_result['original_total_cost']}(AUD)")
         print(f"{'Reward points to redeem:':<20} {self.cost_result['redeem_point']}(points)")
         print(f"{'Discount based on points: $':<20} {self.cost_result['discount']}(AUD)")
@@ -1128,9 +1241,13 @@ class Operations:
                 print(f"Guest's name {name} not found. Please enter tha valid guest's name")   
         except ValueError as e:
             print("Error! order_history: {e}")
-    def exit():
-        
-        print()
+    def save_and_exit(self):
+        # Save guest, product, and order data to their respective files
+        self.records.save_guests(guest_file)
+        self.records.save_product(product_file)
+        self.records.save_orders(order_file)
+        print("Exiting the program. All data saved.")
+        sys.exit(0)
 
 class Statistics:
     def __init__(self,orders):
@@ -1209,24 +1326,68 @@ class Statistics:
 
             print("\nKey statistics have been saved to stats.txt.")
     
-    
+def load_files_from_arguments(records):
+    # Default file names
+    guest_file_name = "guests.csv"
+    product_file_name = "products.csv"
+    order_file_name = "orders.csv"  # Optional
 
+    # Check command-line arguments
+    args = sys.argv[1:]  # Skip the script name (sys.argv[0])
 
-records = Records()
-guest_file = records.read_guests("guests.csv")
-product_file = records.read_product("products.csv")
-order_file = records.read_orders("orders.csv")
+    if len(args) == 0:
+        print("No file names provided. Using defaults: guests.csv, products.csv, orders.csv (optional)")
+    elif len(args) == 2:
+        # Two arguments provided (guest file and product file)
+        guest_file_name = args[0]
+        product_file_name = args[1]
+        print(f"Using provided guest file: {guest_file_name}, product file: {product_file_name}, and default order file: {order_file_name}")
+    elif len(args) == 3:
+        # Three arguments provided (guest file, product file, and order file)
+        guest_file_name = args[0]
+        product_file_name = args[1]
+        order_file_name = args[2]
+        print(f"Using provided guest file: {guest_file_name}, product file: {product_file_name}, and order file: {order_file_name}")
+    else:
+        # Incorrect number of arguments
+        print("Usage: python program.py <guest_file> <product_file> [order_file]")
+        sys.exit(1)
 
-if not guest_file and not product_file:
-    print("Error both: guests.csv and products.csv are missing!!!")
-    exit()
-elif not guest_file:
-    print("Error guests.csv is missing!!!")
-elif not product_file:
-    print("Error products.csv is missing!!!")
-else:
-    print("Loaded both files successfully!!!!")
-    operations = Operations(records)
+    # Load guest and product files (mandatory)
+    guest_file = records.read_guests(guest_file_name)
+    product_file = records.read_product(product_file_name)
+
+    # Handle missing files
+    if not guest_file and not product_file:
+        print("Error both: guest file and product file are missing!!!")
+        sys.exit(1)
+    elif not guest_file:
+        print("Error: guest file is missing!!!")
+        sys.exit(1)
+    elif not product_file:
+        print("Error: product file is missing!!!")
+        sys.exit(1)
+    else:
+        print("Loaded guest and product files successfully!")
+
+    # Load the optional order file
+    order_file = None
+    if os.path.exists(order_file_name):
+        order_file = records.read_orders(order_file_name)
+        if not order_file:
+            print("Warning: Cannot load the order file, proceeding without it.")
+    else:
+        print(f"Order file {order_file_name} not found. Proceeding without loading order data.")
+
+    return guest_file_name, product_file_name, order_file_name
+if __name__ == "__main__":
+    records = Records()
+
+    # Load files using command-line arguments or defaults
+    guest_file, product_file, order_file = load_files_from_arguments(records)
+    # Pass the file names to the Operations class
+    operations = Operations(records, guest_file, product_file, order_file)
+
+    # Start the menu loop
     while True:
         operations.display_menu()
-
