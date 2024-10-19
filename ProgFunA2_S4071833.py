@@ -9,9 +9,9 @@ class Guest:
     def __init__(self, ID, name, reward=0, reward_rate=None, redeem_rate=None):
         self.ID = ID
         self.name = name.strip()
-        self.reward = float(reward)
-        self.reward_rate = float(reward_rate) if reward_rate is not None else Guest.reward_rate
-        self.redeem_rate = float(redeem_rate) if redeem_rate is not None else Guest.redeem_rate
+        self.reward = int(reward)
+        self.reward_rate = int(reward_rate) if reward_rate is not None else Guest.reward_rate
+        self.redeem_rate = int(redeem_rate) if redeem_rate is not None else Guest.redeem_rate
 
     def get_reward(self,total_cost):
         cal_reward = round(total_cost * (self.reward_rate/100))
@@ -19,23 +19,23 @@ class Guest:
     
     def update_reward(self, new_reward):
         self.reward += new_reward
-        print(f"Success Update reward!!! {self.name} has total reward = {self.reward}")
+        #print(f"Success Update reward!!! {self.name} has total reward = {self.reward}")
 
     def update_reward_from_order(self, new_reward):
         self.reward = new_reward
-        print(f"Success Update reward!!! {self.name} has total reward = {self.reward} from order file.")
+        #print(f"Success Update reward!!! {self.name} has total reward = {self.reward} from order file.")
     
     
     def display_info(self):
-        print(f"{self.ID:<10} {self.name:<20} {self.reward_rate:>10.2f} {self.reward:>10.2f} {self.redeem_rate:>15.2f}")
+        print(f"{self.ID:<10} {self.name:<20} {self.reward_rate:>10} {self.reward:>10} {self.redeem_rate:>15}")
     @staticmethod
     def set_reward_rate(new_value):
         Guest.reward_rate = new_value
-        print(f"Successfully set the new reward rate for all guests to {Guest.reward_rate:.2f}%.\n")
+        print(f"Successfully set the new reward rate for all guests to {Guest.reward_rate}%.\n")
     @staticmethod
     def set_redeem_rate(new_value):
         Guest.redeem_rate = new_value
-        print(f"Successfully set the new reward rate for all guests to {Guest.redeem_rate:.2f}%.\n")
+        print(f"Successfully set the new reward rate for all guests to {Guest.redeem_rate}%.\n")
 
 class Product:
     def __init__(self, ID, name, price):
@@ -135,7 +135,7 @@ class Order:
         
         if claim_discount:
             redeem_point = (guest.reward//100) * 100
-            discount = redeem_point * (self.guest.redeem_rate/100)
+            discount = redeem_point * (guest.redeem_rate/100)
 
         # the final_total_cost:
         final_total_cost = original_total_cost - discount
@@ -348,6 +348,7 @@ class Records:
         Add or update information of apartment units.
         The user can add a new apartment unit or update an existing one.
         """
+        print("\n--- Add/Update Information of Apartment Unit ---")
         user_input = input("Enter apartment information (e.g., apartment_id apartment_name rate capacity):\n").strip().split()
         if len(user_input) < 4:
                 print("Invalid input format. Please enter in the format 'apartment_id apartment_name rate capacity'. Returning to main menu...")
@@ -395,10 +396,11 @@ class Records:
             print("\nUpdated List of ApartmentUnits:")
             self.list_product("apartment")
             
-        except:
-            print("invalid format.\n")
+        except ValueError as e :
+            # Handle invalid input and re-prompt the user
+            print(f"Invalid input: {e}. Please enter in the format 'apartment_id apartment_name rate capacity'.")
 
-    def validate_apartment_id(apartment_id):
+    def validate_apartment_id(self, apartment_id):
         if not apartment_id.startswith('U'): # check apartmentid must start with U
             return False
         i = 1
@@ -411,8 +413,12 @@ class Records:
             return False
         return True
     
-    def validate_item_id(item_id):
-        if not item_id.startswith('SI'): # check apartmentid must start with U
+    def validate_item_id(self, item_id):
+        if not item_id.startswith('SI'): # check apartmentid must start with SI
+            print("Error ID is not validated Id must start with SI")
+            return False
+        if not item_id[2:].isdigit():
+            print(f"Invalid bundle ID format '{item_id}'. It must start with 'SI', followed by a number (e.g., SI1).")
             return False
         return True
     
@@ -422,7 +428,7 @@ class Records:
 
         while True:
             # Prompt the user to enter supplementary item information in the required format
-            user_input = input("Enter supplementary item information in the format 'item_id item_name price, item_id item_name price, ...' (e.g., IS5 toothpaste 5.2, IS6 toothbrush 3.0):\n").strip().split(',')
+            user_input = input("Enter supplementary item information in the format 'item_id1 item_name1 price1, item_id2 item_name2 price2, ...' (e.g., IS5 toothpaste 5.2, IS6 toothbrush 3.0):\n").strip().split(',')
 
             valid_input = True  # Flag to check if all entries are valid
 
@@ -431,29 +437,29 @@ class Records:
                 item = item.strip().split()  # Split each item by whitespace to get item_id, item_name, and price
 
                 # Ensure that each item has at least 3 components: item_id, item_name, price
-                if len(item) < 3:
+                if len(item) != 3:
                     print(f"Invalid input format for '{' '.join(item)}'. Please enter in the format 'item_id item_name price'.")
                     valid_input = False  # Set the flag to False if there's any invalid entry
-                    break  # Exit the for loop and prompt the user to enter again
+                    continue  # Skip to the next iteration if there's any invalid entry
+                    #break  # Exit the for loop and prompt the user to enter again
 
                 # Extract item_id, item_name, and price
                 item_id = item[0]
-                price = item[-1]  # Last element is the price
-                item_name = " ".join(item[1:-1])  # Join the remaining elements as item_name
+                
                 if not self.validate_item_id(item_id):
-                    print("Error ID is not validated Id must dtart with SI")
-                    return
+                    valid_input = False  # Set the flag to False if there's any invalid entry
+                    continue  # Skip to the next iteration if the item_id is invalid
                 try:
+                    price = item[-1]  # Last element is the price
+                    item_name = " ".join(item[1:-1])  # Join the remaining elements as item_name
                     # Convert price to float and validate it's positive
                     price = float(price)
                     if price <= 0:
                         print(f"Price for item '{item_id}' must be a positive number.")
                         valid_input = False  # Set the flag to False if price is invalid
-                        break  # Exit the for loop and prompt the user to enter again
                 except ValueError:
                     print(f"Invalid price format for item '{item_id}'. Please enter a numeric value.")
                     valid_input = False  # Set the flag to False if there's any invalid entry
-                    break  # Exit the for loop and prompt the user to enter again
 
             # If all entries are valid, break out of the while loop
             if valid_input:
@@ -461,32 +467,33 @@ class Records:
             else:
                 print("Please re-enter the supplementary item information correctly.\n")
 
-        # Process the valid input and add/update items
-        for item in user_input:
-            item = item.strip().split()
-            item_id = item[0]
-            price = float(item[-1])  # Last element is the price
-            item_name = " ".join(item[1:-1])  # Join the remaining elements as item_name
+        if valid_input:
+            # Process the valid input and add/update items
+            for item in user_input:
+                item = item.strip().split()
+                item_id = item[0]
+                price = float(item[-1])  # Last element is the price
+                item_name = " ".join(item[1:-1])  # Join the remaining elements as item_name
 
-            # Check if the supplementary item already exists in the product list
-            existing_supplementary = self.find_product(item_id)
+                # Check if the supplementary item already exists in the product list
+                existing_supplementary = self.find_product(item_id)
 
-            if existing_supplementary:
-                print(f"Supplementary item with ID '{item_id}' already exists.")
-                print("Updating the existing supplementary item information...")
-                # Update the existing supplementary item information
-                existing_supplementary.name = item_name
-                existing_supplementary.price = price
-                print(f"Updated supplementary item '{item_id}' successfully with new price: {price:.2f}!")
-            else:
-                # Create a new supplementary item and add it to the product list
-                new_supplementary = SupplementaryItem(item_id, item_name, price)
-                self.product_list.append(new_supplementary)
-                print(f"Added new supplementary item '{item_id}' successfully with price: {price:.2f}!")
+                if existing_supplementary:
+                    print(f"Supplementary item with ID '{item_id}' already exists.")
+                    print("Updating the existing supplementary item information...")
+                    # Update the existing supplementary item information
+                    existing_supplementary.name = item_name
+                    existing_supplementary.price = price
+                    print(f"Updated supplementary item '{item_id}' successfully with new price: {price:.2f}!")
+                else:
+                    # Create a new supplementary item and add it to the product list
+                    new_supplementary = SupplementaryItem(item_id, item_name, price)
+                    self.product_list.append(new_supplementary)
+                    print(f"Added new supplementary item '{item_id}' successfully with price: {price:.2f}!")
 
-        # Display the updated list of supplementary items
-        print("\nUpdated List of Supplementary Items:")
-        self.list_product("si")
+            # Display the updated list of supplementary items
+            print("\nUpdated List of Supplementary Items:")
+            self.list_product("si")
 
     # New method to add/update bundle information with input validation
     def add_update_bundle(self):
@@ -498,22 +505,22 @@ class Records:
         print("\n--- Add/Update Information of Bundles ---")
 
         # Prompt the user to enter bundle information in the required format
-        user_input = input("Enter bundle information in the format 'bundle_id bundle_name price components' (e.g., B1 Bed and Breakfast 220.48 U12swan, SI2, SI2, SI1):\n").strip().split(',')
+        user_input = input("Enter bundle information in the format 'bundle_id, bundle_name, components, price' (e.g., B1, Bed and Breakfast, U12swan, SI2, SI2, SI1, 220.48):\n").strip().split(',')
 
-        # Validate input length (must have at least 4 parts: bundle_id, bundle_name, price, and components)
+        # Validate input length (must have at least 4 parts: bundle_id, bundle_name, components, price)
         if len(user_input) < 4:
             print("Invalid input format. Please enter in the format 'bundle_id bundle_name price components'. Returning to main menu...")
             return  # Return to main menu on invalid input
 
         # Extract and validate each component
         bundle_id = user_input[0]
-        bundle_name = user_input[1]  # Join the name parts (everything between ID and price)
-        price = user_input[-2]  # Second last part is the price
-        components_input = user_input[2:-2]  # Last part is the components string
+        bundle_name = user_input[1].strip() # Join the name parts (everything between ID and price)
+        price = user_input[-1]  # Second last part is the price
+        components_input = user_input[2:-1]  # Last part is the components string
 
         if not bundle_id.startswith('B'): # check bundleid must start with B
             print("Invalid bundle ID format. It must start with 'B'. Returning to main menu...")
-            return  # Return to main menu on invalid input
+            return  # Return to main menu on invalid 
         if not bundle_id[1:].isdigit():
             print(f"Invalid bundle ID format '{bundle_id}'. It must start with 'B', followed by a number (e.g., B1).")
             return  # Return to main menu on invalid input
@@ -529,7 +536,7 @@ class Records:
             return  # Return to main menu on invalid input
 
         # Validate and process the component IDs
-        component_ids = [component.strip() for component in components_input.split(",")]
+        component_ids = [component.strip() for component in components_input]
         for component in component_ids:
             if not self.find_product(component):
                 print(f"Component ID '{component}' does not exist in the product list. Returning to main menu...")
@@ -545,12 +552,12 @@ class Records:
             existing_bundle.name = bundle_name
             existing_bundle.price = price
             existing_bundle.components = component_ids
-            print(f"Updated bundle '{bundle_id}' successfully with new name '{bundle_name}', price: {price:.2f}, and components: {', '.join(component_ids)}!")
+            print(f"Updated bundle '{bundle_id}' successfully!")
         else:
             # Create a new bundle and add it to the product list
             new_bundle = Bundle(bundle_id, bundle_name, price, component_ids)
             self.product_list.append(new_bundle)
-            print(f"Added new bundle '{bundle_id}' with name '{bundle_name}', price: {price:.2f}, and components: {', '.join(component_ids)}!")
+            print(f"Added new bundle '{bundle_id}' successfully!")
 
         # Display the updated list of bundles
         print("\nUpdated List of Bundles:")
@@ -577,7 +584,7 @@ class Records:
                     elif isinstance(product, SupplementaryItem):
                         line = f"{product.ID}, {product.name}, {product.price}\n"
                     elif isinstance(product, Bundle):
-                        components = ",".join(product.component)
+                        components = ", ".join(product.component)
                         line = f"{product.ID}, {product.name}, {components}, {product.price}\n"
                     file.write(line)
             print(f"Product data saved to {filename}.")
@@ -639,11 +646,11 @@ class Operations:
         elif menu == '5':
             self.display_bundle()
         elif menu == '6':
-            records.add_update_apartment()
+            self.records.add_update_apartment()
         elif menu == '7':
-            records.add_update_supplementary_item()
+            self.records.add_update_supplementary_item()
         elif menu == '8':
-            records.add_update_bundle()
+            self.records.add_update_bundle()
         elif menu == '9':
             self.set_reward_rate()
         elif menu == '10':
@@ -875,7 +882,7 @@ class Operations:
         if night.days > 0:
             return night.days
         else:
-            print("Invalid input date> Check out date must be after Check in date!!!!!")
+            print("Invalid input date. Check out date must be after Check in date!!!!!")
     
     @staticmethod
     def get_current_formatdate():
@@ -956,7 +963,7 @@ class Operations:
                         if not found:
                             # If item is not found, add it to the list as a new entry
                             supplementary_list.append((si, si_qty))
-                            print(f"Item added to order! Supplementary ID: {si.ID}, Name: {si.name}, Quantity: {si_qty}, Unit Price: {si.price}")
+                            #print(f"Item added to order! Supplementary ID: {si.ID}, Name: {si.name}, Quantity: {si_qty}, Unit Price: {si.price}")
                     if not Operations.validate_asking_supplementary_2():
                         break
             # return the final list of (si, qty)
@@ -1118,7 +1125,7 @@ class Operations:
     def set_reward_rate(self):
         while True:
             try:
-                new_reward_rate = float(input("Enter new reward rate for all guests (positive number greater than 0): ").strip())
+                new_reward_rate = int(input("Enter new reward rate for all guests (positive number greater than 0 eg., 100, 200, 300): ").strip())
                 # Validate that the input is a positive number greater than zero
                 if new_reward_rate <= 0:
                     raise ValueError("Reward rate must be greater than 0.")
@@ -1130,11 +1137,11 @@ class Operations:
                 break
             except ValueError as e:
                 # Handle invalid input and re-prompt the user
-                print(f"Invalid input: {e}. Please enter a valid positive number.")
+                print(f"Invalid input: {e}. Please enter a valid positive integer number.")
     def set_redeem_rate(self):
         while True:
             try:
-                new_redeem_rate = float(input("Enter new reward redeem rate for all guests (positive number greater than 0): ").strip())
+                new_redeem_rate = int(input("Enter new reward redeem rate for all guests (positive number greater than 0 eg., 1, 2, 3, 4): ").strip())
                 # Validate that the input is a positive number greater than zero
                 if new_redeem_rate <= 0:
                     raise ValueError("Redeem rate must be greater than 0.")
@@ -1146,7 +1153,7 @@ class Operations:
                 break
             except ValueError as e:
                 # Handle invalid input and re-prompt the user
-                print(f"Invalid input: {e}. Please enter a valid positive number.")
+                print(f"Invalid input: {e}. Please enter a valid positive integer number.")
 
 
 
@@ -1155,9 +1162,10 @@ class Operations:
 
     # disply total receipt after making a book apartment from menu 1
     def display_receipt(self):
-        print("="*70)
+        line_length = 80
+        print("="* line_length)
         print(f"{'Pythonia Service Apartment - Booking Receipt':^70}")
-        print("="*70)
+        print("="* line_length)
         print(f"{'Guest name:':<20} {self.guest_name}")
         print(f"{'Number of guests:':<20} {self.number_guest}")
         if self.answer_bundle:
@@ -1176,19 +1184,19 @@ class Operations:
             print(f"{'Sub-total:$':<20} {self.apartment_sub_total}(AUD)")
         # Bundle supplementary items included in the price
         if self.answer_bundle:
-            print("-"*70)
+            print("-"* line_length)
             print(f"{'Included Supplementary items (in bundle price)':<20}")
-            print(f"{'ID':<10} {'Name':<20} {'Quantity':<10} {'Cost Included'}")
+            print(f"{'ID':<10} {'Name':<30} {'Quantity':<10} {'Cost Included'}")
             for si, qty in self.bundle_list:
                 id = si.ID
                 name = si.name
                 qty = qty * self.length_stay
-                print(f"{id:<10} {name:<20} {qty:<10} {'Included'}")
+                print(f"{id:<10} {name:<30} {qty:<10} {'Included'}")
             # print part supplemetary items
         if self.supplementary_list:
-            print("-"*70)
+            print("-"* line_length)
             print(f"{'Supplementary items':<20}")
-            print(f"{'ID':<10} {'Name':<20} {'Quantity':<10} {'Unit Price $':<15} {'Cost $':<10}")
+            print(f"{'ID':<10} {'Name':<30} {'Quantity':<10} {'Unit Price $':<15} {'Cost $':<10}")
 
             for si, qty in self.supplementary_list:
                 id = si.ID
@@ -1197,10 +1205,10 @@ class Operations:
                 unit_price = si.price
                 cost = si.price * qty
 
-                print(f"{id:<10} {name:<20} {qty:<10} {unit_price:<15.2f} {cost:<10.2f}")
+                print(f"{id:<10} {name:<30} {qty:<10} {unit_price:<15.2f} {cost:<10.2f}")
 
             print(f"{'Sub-total:$':<20} {self.supplementary_item_sub_total}(AUD)")
-        print("-"*70)
+        print("-"* line_length)
         print(f"{'Total cost:$':<20} {self.cost_result['original_total_cost']}(AUD)")
         print(f"{'Reward points to redeem:':<20} {self.cost_result['redeem_point']}(points)")
         print(f"{'Discount based on points: $':<20} {self.cost_result['discount']}(AUD)")
@@ -1209,7 +1217,7 @@ class Operations:
         print("")
         print(f"{'Thank you for your booking!':<20}")
         print(f"{'We hope you will have an enjoyable stay.':<20}")
-        print("="*70)
+        print("="*line_length)
 
         # print(f"Total cost: ${receipt['cost']:.2f}  (AUD)")
         # print(f"Earned rewards: {receipt['point']} (points)\n")
@@ -1249,17 +1257,17 @@ class Operations:
 
 class Statistics:
     def __init__(self,orders):
-        self.orders = orders
+        self.__orders = orders
     
     def generate_key_stat(self):
         # top 3 top spender guest booking so far
-        top3_guests = self.get_top3_guests()
+        top3_guests = self.__get_top3_guests()
         print("\n--- Top 3 Most Top Spender Guest ----")
         for guest, total in top3_guests:
             print(f"Guest: {guest}, Total Amout: ${total:.2f}")
 
         # top 3 Popular products show name and quantity
-        top3_products = self.get_top3_products()
+        top3_products = self.__get_top3_products()
         print("\n--- Top 3 Most Pupular Products ---")
         for product, quantity in top3_products:
             print(f"Product: {product}, Quantity Sold: {quantity}")
@@ -1269,10 +1277,10 @@ class Statistics:
         self.save_to_file(top3_guests, top3_products)
     # Get top 3 Guest base on their total order amounts
     # Return List of tuples containing (guest_name, total_order_amount)
-    def get_top3_guests(self):
+    def __get_top3_guests(self):
         guest_totals= {}
 
-        for order in self.orders:
+        for order in self.__orders:
             guest_name = order.guest_name
             total_amount = order.total_cost 
 
@@ -1284,13 +1292,13 @@ class Statistics:
         # Sort guests by total order amount in descending order and get top 3
         top_guests = sorted(guest_totals.items(), key=lambda x: x[1], reverse=True)[:3]
         return top_guests
-    def get_top3_products(self):
+    def __get_top3_products(self):
         """
         Calculate and return the top 3 most popular products based on sold quantity.
         :return: List of tuples containing (product_name, total_sold_quantity).
         """
         product_quantities = {}
-        for order in self.orders:
+        for order in self.__orders:
             # Extract product names and their quantities from the order
             for item in order.products:
                 product_id = item["product_id"]
@@ -1377,6 +1385,8 @@ def load_files_from_arguments(records):
         order_file = records.read_orders(order_file_name)
         if not order_file:
             print("Warning: Cannot load the order file, proceeding without it.")
+        else:
+            print(f"Loaded order file {order_file_name} successfully!")
     else:
         print(f"Order file {order_file_name} not found. Proceeding without loading order data.")
 
